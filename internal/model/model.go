@@ -494,6 +494,18 @@ type License struct {
 	// Seat.Paused), so the member's key opens the licence but may not be
 	// used. Shown to that member in the portal.
 	KeySeatPaused bool `bun:"-" json:"key_paused,omitempty"`
+	// WasStripePaused and WasCanceled are the row as the last
+	// subscription-driven write found it, under the lock it held until
+	// commit (store.updateLicenseAndSubscriptionIn): a write that made it
+	// usable ended a Stripe pause, one that canceled it ended the licence.
+	// Concurrent events cannot both find the same state, so each change
+	// is told once.
+	WasStripePaused bool `bun:"-" json:"-"`
+	// Whether the row was past due, and since when, as the write found
+	// it: a recovery is told once, for the episode it ended.
+	WasPastDue     bool       `bun:"-" json:"-"`
+	PriorPastDueAt *time.Time `bun:"-" json:"-"`
+	WasCanceled    bool       `bun:"-" json:"-"`
 }
 
 // GraceDays is how many days past ValidUntil the licence's key keeps
@@ -595,7 +607,10 @@ type AuditLog struct {
 	ActorType string         `json:"actor_type,omitempty"`
 	Changes   map[string]any `bun:"type:jsonb,default:'{}'" json:"changes,omitempty"`
 	IPAddress string         `json:"ip_address,omitempty"`
-	CreatedAt time.Time      `bun:",nullzero,default:now()" json:"created_at"`
+	// The product the line belongs to. Found from the entity when the
+	// line is written; a caller deleting the entity sets it first.
+	ProductID string    `bun:",nullzero" json:"product_id,omitempty"`
+	CreatedAt time.Time `bun:",nullzero,default:now()" json:"created_at"`
 }
 
 // ─── Seat ───

@@ -480,6 +480,9 @@ func TestSeats_HeldChangeFailureIsNotDunning(t *testing.T) {
 	if l := f.license(); l.Status != model.StatusActive || l.PastDueAt != nil {
 		t.Fatalf("after a held change failed to pay: status %s past_due_at %v, want active", l.Status, l.PastDueAt)
 	}
+	// A renewal that fails puts the subscription past due in Stripe, and
+	// the licence follows what Stripe has now.
+	f.fake.status = "past_due"
 	_ = f.h.onPaymentFailed(f.ctx, fmt.Appendf(nil, `{"subscription":%q,"billing_reason":"subscription_cycle"}`, f.lic.StripeSubscriptionID))
 	if l := f.license(); l.Status != model.StatusPastDue {
 		t.Fatalf("after a renewal failed: status %s, want past_due", l.Status)
@@ -2205,6 +2208,33 @@ func TestSeats_HeldWebhookIsRetried(t *testing.T) {
 	err := f.h.onSubscriptionUpdated(f.ctx, fmt.Appendf(nil, `{"id":%q}`, f.lic.StripeSubscriptionID))
 	if !errors.Is(err, store.ErrTermsHeld) {
 		t.Fatalf("webhook while held = %v, want ErrTermsHeld so Stripe sends it again", err)
+	}
+}
+
+// A failed payment while a downgrade's seats are held writes past_due,
+// reports the failure once, and still asks to be sent again for the
+// seats.
+func TestSeats_HeldPaymentFailureIsReportedAndRetried(t *testing.T) {
+	f := newSeatFixture(t, 6)
+	p := f.preview(fmt.Sprintf(`{"license_id":%q,"quantity":2}`, f.lic.ID))
+	f.fake.updateErr = http.StatusServiceUnavailable
+	if c, _ := f.change(p, ""); c != http.StatusAccepted {
+		t.Fatalf("change = %d, want 202", c)
+	}
+	f.fake.updateErr = 0
+	f.fake.status = "past_due"
+	for i := range 2 {
+		err := f.h.onPaymentFailed(f.ctx, fmt.Appendf(nil, `{"subscription":%q,"status":"open","billing_reason":"subscription_cycle"}`, f.lic.StripeSubscriptionID))
+		if !errors.Is(err, store.ErrTermsHeld) {
+			t.Fatalf("delivery %d: %v, want ErrTermsHeld so Stripe sends it again", i, err)
+		}
+	}
+	if st := f.license().Status; st != model.StatusPastDue {
+		t.Fatalf("status = %s, want past_due", st)
+	}
+	var n int
+	if err := f.s.DB.NewRaw("SELECT count(*) FROM notifications WHERE license_id = ? AND tag LIKE 'payment_failed:%'", f.lic.ID).Scan(f.ctx, &n); err != nil || n != 1 {
+		t.Fatalf("failure reported %d times (%v), want once", n, err)
 	}
 }
 
