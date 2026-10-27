@@ -148,8 +148,10 @@ info:
     unusable license) are counted per IP. After `BF_MAX_FAILS` failures
     (default 5) within 5 minutes the IP is locked out of all of
     `/license/*` for `BF_LOCKOUT_SECONDS` (default 30), doubling on each
-    further lockout up to 30 minutes. A locked out request answers `429
-    LOCKED_OUT` with `Retry-After` and `details.retry_after` in seconds.
+    further lockout up to 30 minutes. The doubling is remembered until
+    30 minutes after the last lockout ends; a successful call from the
+    IP clears it. A locked out request answers `429 LOCKED_OUT` with
+    `Retry-After` and `details.retry_after` in seconds.
 
     ## Existence-oracle hardening
 
@@ -6485,7 +6487,11 @@ components:
                 perpetual plans with updates for life).
             features:
               type: object
-              description: "Key-value map of feature entitlements"
+              description: |
+                Key-value map of feature entitlements, as the signed
+                token's `ftr` carries it: `bool` and `flag` features as
+                JSON booleans (a flag is off only at the value `false`),
+                every other type as its string value.
               example:
                 premium_support: true
                 api_calls: "50000"

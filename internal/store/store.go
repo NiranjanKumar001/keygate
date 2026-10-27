@@ -1231,9 +1231,15 @@ func updateLicenseAndSubscriptionIn(ctx context.Context, tx bun.Tx, lic *model.L
 			Linked bool       `bun:"linked"`
 			Synced *time.Time `bun:"synced"`
 		}
-		if err := tx.NewRaw("SELECT COALESCE(stripe_subscription_id, '') = ? AS linked, stripe_synced_at AS synced FROM licenses WHERE id = ?",
-			lic.StripeSubscriptionID, lic.ID).Scan(ctx, &now); err != nil || !now.Linked {
+		// A licence that is gone is unlinked too; a read that failed is
+		// a failure, which the caller retries rather than ignores.
+		err := tx.NewRaw("SELECT COALESCE(stripe_subscription_id, '') = ? AS linked, stripe_synced_at AS synced FROM licenses WHERE id = ?",
+			lic.StripeSubscriptionID, lic.ID).Scan(ctx, &now)
+		if errors.Is(err, sql.ErrNoRows) || (err == nil && !now.Linked) {
 			return ErrSubscriptionUnlinked
+		}
+		if err != nil {
+			return err
 		}
 		if asOf != nil && now.Synced != nil && now.Synced.After(*asOf) {
 			return ErrStaleSubscriptionRead
@@ -2304,7 +2310,7 @@ func (s *Store) WithXactLock(ctx context.Context, key int64, fn func(ctx context
 	if err := fn(ctx, tx); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return commitTx(ctx, tx)
 }
 
 // DeleteProcessedEvent forgets a recorded event.
@@ -3207,6 +3213,18 @@ func RunInTx(ctx context.Context, db *bun.DB, fn func(ctx context.Context, tx bu
 	defer tx.Rollback()
 	if err := fn(ctx, tx); err != nil {
 		return err
+	}
+	return commitTx(ctx, tx)
+}
+
+// commitTx commits, first making sure the transaction can still commit.
+// pgdriver answers nil to a COMMIT that Postgres turned into a rollback,
+// so a failed statement whose error was dropped would read as a write
+// that landed. Any statement on an aborted transaction fails (25P02);
+// this one costs a round trip and nothing else.
+func commitTx(ctx context.Context, tx bun.Tx) error {
+	if _, err := tx.ExecContext(ctx, "SELECT 1"); err != nil {
+		return fmt.Errorf("transaction cannot commit: %w", err)
 	}
 	return tx.Commit()
 }
