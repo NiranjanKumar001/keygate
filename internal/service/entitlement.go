@@ -74,7 +74,7 @@ func (s *EntitlementService) Check(ctx context.Context, in CheckInput) (*CheckRe
 
 	// Plan entitlements with the license's addons merged in. A bare plan
 	// still gets its addons' features.
-	ents, err := licenseFeatures(ctx, s.store, lic)
+	ents, err := LicenseFeatures(ctx, s.store, lic)
 	if err != nil {
 		return nil, err
 	}

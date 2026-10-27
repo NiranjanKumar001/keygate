@@ -132,8 +132,11 @@ info:
 
     ## Rate limits and lockout
 
-    Requests are counted per client IP, in separate buckets per route
-    family: `/license/*` (at least 120 per minute), the feeds (at least
+    Requests are counted per client IP: the connection's address, or,
+    when it comes from a proxy listed in `TRUSTED_PROXIES` (private
+    networks when unset), the address that proxy reports: the rightmost
+    untrusted entry of `X-Forwarded-For`, else `X-Real-Ip`. The counts
+    are kept in separate buckets per route family: `/license/*` (at least 120 per minute), the feeds (at least
     240 per minute), `/auth/*` and sign-up (`RATE_LIMIT_AUTH`, default 60
     per minute), `POST /auth/otp/send` and `POST
     /signup/{checkout_id}/send` (`RATE_LIMIT_OTP_SEND`, default 30 per

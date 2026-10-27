@@ -155,7 +155,7 @@ func TestOtherProductsAddonGrantsNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ents, err := licenseFeatures(ctx, s, loaded)
+	ents, err := LicenseFeatures(ctx, s, loaded)
 	if err != nil {
 		t.Fatal(err)
 	}

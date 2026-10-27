@@ -171,7 +171,7 @@ func TestEntitlements(t *testing.T) {
 		},
 	}
 
-	ents, err := licenseFeatures(context.Background(), nil, lic)
+	ents, err := LicenseFeatures(context.Background(), nil, lic)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestEntitlements(t *testing.T) {
 		t.Errorf("sla should be '99.9%%', got %v", features["sla"])
 	}
 
-	nilEnts, _ := licenseFeatures(context.Background(), nil, &model.License{})
+	nilEnts, _ := LicenseFeatures(context.Background(), nil, &model.License{})
 	emptyFeatures := featureValues(nilEnts)
 	if len(emptyFeatures) != 0 {
 		t.Error("nil plan should return empty features")

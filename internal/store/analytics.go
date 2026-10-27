@@ -723,17 +723,24 @@ func (s *Store) GetUserDetail(ctx context.Context, userID string) (*UserDetail, 
 	}
 	detail.Memberships = memberships
 
-	subs, err := s.ListSubscriptionsByUser(ctx, userID)
-	if err == nil {
-		detail.Subscriptions = subs
-	}
-
 	licenseIDs := make([]string, len(licenses))
 	for i, l := range licenses {
 		licenseIDs[i] = l.ID
 	}
 
 	if len(licenseIDs) > 0 {
+		// A subscription is found through its licence: nothing fills
+		// subscriptions.user_id, and the licences above are this
+		// customer's, by owner or by email.
+		var subs []*model.Subscription
+		if err := s.DB.NewSelect().Model(&subs).
+			Relation("License").Relation("Plan").Relation("Plan.Product").
+			Where("subscription.license_id IN (?)", bun.List(licenseIDs)).
+			OrderExpr("subscription.created_at DESC").Scan(ctx); err != nil {
+			return nil, err
+		}
+		detail.Subscriptions = subs
+
 		var usageResult struct {
 			Total int64 `bun:"total"`
 		}

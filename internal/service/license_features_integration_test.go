@@ -18,7 +18,7 @@ import (
 
 // An addon on a license must reach every place features are read: the
 // verify answer, the offline token, usage limits and usage status, not
-// only the entitlements endpoint. Before licenseFeatures, verify and the token
+// only the entitlements endpoint. Before LicenseFeatures, verify and the token
 // carried plan features only and usage enforced the plan's quota.
 func TestAddonsReachVerifyTokenAndUsage(t *testing.T) {
 	dsn := os.Getenv("TEST_DATABASE_URL")

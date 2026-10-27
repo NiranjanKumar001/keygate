@@ -866,6 +866,8 @@ export interface PortalLicense extends License {
   key_paused?: boolean
   // Its subscription ends at the period end rather than renews (owner only).
   cancel_scheduled?: boolean
+  // What the license grants: the plan's features with its addons applied.
+  features?: Entitlement[]
 }
 
 export interface Activation {

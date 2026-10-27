@@ -164,7 +164,7 @@ func (s *UsageService) RecordUsage(ctx context.Context, in RecordUsageInput) (*R
 // RecordUsage and GetQuotaStatus both read it, so the status always
 // describes the limit and period that usage is counted against.
 func (s *UsageService) quotaFor(ctx context.Context, lic *model.License, feature string) (*model.Entitlement, error) {
-	ents, err := licenseFeatures(ctx, s.store, lic)
+	ents, err := LicenseFeatures(ctx, s.store, lic)
 	if err != nil {
 		return nil, err
 	}

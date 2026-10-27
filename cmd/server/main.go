@@ -597,10 +597,20 @@ func main() {
 
 	r.Use(gin.LoggerWithFormatter(redactedLogFormatter), redactedRecovery())
 
-	// Trust reverse proxy headers (Traefik, Nginx, etc.) to get real client IP.
-	// Trusts X-Forwarded-For / X-Real-Ip from private network ranges.
-	r.SetTrustedProxies([]string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"})
-	r.RemoteIPHeaders = []string{"X-Forwarded-For", "X-Real-Ip"}
+	proxies, err := trustProxies(r, cfg.TrustedProxies)
+	if err != nil {
+		logger.Error("TRUSTED_PROXIES is not a list of addresses", "error", err)
+		os.Exit(1)
+	}
+	switch {
+	case len(proxies) == 0:
+		logger.Info("client address: no proxy trusted", "trusted_proxies", "none")
+	case trustsEveryone(proxies):
+		logger.Warn("TRUSTED_PROXIES trusts every address: any client can choose the address its rate limits and lockouts count under",
+			"trusted_proxies", strings.Join(proxies, ","))
+	default:
+		logger.Info("client address: X-Forwarded-For believed from", "trusted_proxies", strings.Join(proxies, ","))
+	}
 
 	r.Use(middleware.RequestID())
 	r.Use(middleware.PrometheusMetrics())
@@ -913,6 +923,9 @@ func main() {
 				// CancelScheduled says its subscription ends at the
 				// period end rather than renews; told to the owner.
 				CancelScheduled bool `json:"cancel_scheduled,omitempty"`
+				// Features are what the license grants, its addons
+				// included, as verify and the token read them.
+				Features []*model.Entitlement `json:"features"`
 			}
 			model.FillLimits(licenses...)
 			upgradable, err := stripeH.UpgradableLicenses(c, emailStr, licenses)
@@ -939,8 +952,16 @@ func main() {
 				if !ok {
 					continue
 				}
+				features, err := service.LicenseFeatures(c, db, l)
+				if err != nil {
+					response.Internal(c, err)
+					return
+				}
+				if features == nil {
+					features = []*model.Entitlement{}
+				}
 				out = append(out, portalLicense{License: l, LicenseKey: key, Upgradable: upgradable[l.ID],
-					CancelScheduled: ending[l.ID] && strings.EqualFold(l.Email, emailStr)})
+					CancelScheduled: ending[l.ID] && strings.EqualFold(l.Email, emailStr), Features: features})
 			}
 			// The portal hides the renewal button while the switch is
 			// off; the endpoint refuses the sale regardless.

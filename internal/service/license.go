@@ -664,7 +664,7 @@ func (s *LicenseService) tokenTTLFor(lic *model.License) time.Duration {
 func (s *LicenseService) signToken(ctx context.Context, lic *model.License, identifier string) (string, map[string]any, error) {
 	now := time.Now()
 
-	ents, err := licenseFeatures(ctx, s.store, lic)
+	ents, err := LicenseFeatures(ctx, s.store, lic)
 	if err != nil {
 		return "", nil, err
 	}

@@ -7,13 +7,14 @@ import (
 	"github.com/tabloy/keygate/internal/store"
 )
 
-// licenseFeatures returns the features a license actually has: its
+// LicenseFeatures returns the features a license actually has: its
 // plan's entitlements, with each enabled addon adding a feature or
 // replacing the plan's value for a feature of the same name. An addon
 // replaces the limit, never the plan's billing (its Stripe meter). Verify,
-// the offline token, the entitlements endpoint and usage limits all
-// read this, so a license cannot have a feature in one and not another.
-func licenseFeatures(ctx context.Context, st *store.Store, lic *model.License) ([]*model.Entitlement, error) {
+// the offline token, the entitlements endpoint, usage limits and the
+// customer portal all read this, so a license cannot have a feature in
+// one and not another.
+func LicenseFeatures(ctx context.Context, st *store.Store, lic *model.License) ([]*model.Entitlement, error) {
 	var out []*model.Entitlement
 	index := map[string]int{}
 	if lic.Plan != nil {

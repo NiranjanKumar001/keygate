@@ -343,7 +343,7 @@ function LicenseCard({ license: lic, renewalsEnabled }: { license: PortalLicense
           </TabsContent>
 
           <TabsContent value="entitlements" className="mt-4">
-            <EntitlementsSection entitlements={lic.plan?.entitlements || []} />
+            <EntitlementsSection entitlements={lic.features ?? lic.plan?.entitlements ?? []} />
           </TabsContent>
 
           {showUsage && (
@@ -561,23 +561,30 @@ function ActivationsSection({ license }: { license: PortalLicense }) {
   )
 }
 
+// An on/off feature, read as the server reads it: a bool is on only at
+// "true", a flag is off only at "false".
+const isSwitch = (ent: Entitlement) => ent.value_type === "bool" || ent.value_type === "flag"
+const switchedOn = (ent: Entitlement) => (ent.value_type === "flag" ? ent.value !== "false" : ent.value === "true")
+
 function EntitlementsSection({ entitlements }: { entitlements: Entitlement[] }) {
   const { t } = useI18n()
-  if (entitlements.length === 0) {
+  // A feature that is switched off is not one the license includes.
+  const included = entitlements.filter((ent) => !isSwitch(ent) || switchedOn(ent))
+  if (included.length === 0) {
     return <p className="text-sm text-muted-foreground py-4 text-center">{t("portal.noEntitlements")}</p>
   }
 
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium mb-2">{t("portal.featuresIncluded")}</p>
-      {entitlements.map((ent) => (
-        <div key={ent.id} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2 text-sm">
+      {included.map((ent) => (
+        <div key={ent.feature} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2 text-sm">
           <div className="flex items-center gap-2">
             <Check className="h-4 w-4 text-emerald-600 shrink-0" />
             <span className="font-medium">{ent.feature}</span>
           </div>
           <div className="text-muted-foreground text-xs">
-            {ent.value_type === "boolean" ? (
+            {isSwitch(ent) ? (
               <Badge variant="secondary">{t("common.active")}</Badge>
             ) : ent.value_type === "quota" ? (
               <span>
@@ -1029,7 +1036,9 @@ function InviteSeatDialog({ license, onClose }: { license: PortalLicense; onClos
 
 function QuotaUsageSection({ license }: { license: PortalLicense }) {
   const { t } = useI18n()
-  const quotaEntitlements = (license.plan?.entitlements || []).filter((e) => e.value_type === "quota")
+  const quotaEntitlements = (license.features ?? license.plan?.entitlements ?? []).filter(
+    (e) => e.value_type === "quota",
+  )
 
   // A paused member's key reads no usage until a seat is free.
   if (license.key_paused) {
@@ -1044,7 +1053,7 @@ function QuotaUsageSection({ license }: { license: PortalLicense }) {
     <div className="space-y-4">
       <p className="text-sm font-medium mb-2">Quota Usage</p>
       {quotaEntitlements.map((ent) => (
-        <QuotaBar key={ent.id} entitlement={ent} licenseKey={license.license_key} />
+        <QuotaBar key={ent.feature} entitlement={ent} licenseKey={license.license_key} />
       ))}
     </div>
   )
