@@ -610,6 +610,9 @@ func (s *Store) GetRecentActivity(ctx context.Context, productID string, limit i
 		ColumnExpr("id, entity, entity_id, action, actor_type, created_at").
 		OrderExpr("created_at DESC").
 		Limit(limit)
+	if productID != "" {
+		q = auditOfProduct(q, productID)
+	}
 	err := q.Scan(ctx, &out)
 	return out, err
 }
