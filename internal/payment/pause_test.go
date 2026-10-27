@@ -316,7 +316,7 @@ func TestZeroInvoiceDoesNotLiftAPause(t *testing.T) {
 	if err := s.DB.NewRaw("SELECT valid_until FROM licenses WHERE id = ?", lic.ID).Scan(ctx, &until); err != nil {
 		t.Fatal(err)
 	}
-	if !until.Equal(*lic.ValidUntil) {
+	if !model.SameEnd(&until, lic.ValidUntil) { // Postgres keeps microseconds, Go may have nanoseconds
 		t.Fatalf("valid_until %v after a $0 invoice on a paused licence, want %v", until, *lic.ValidUntil)
 	}
 }
