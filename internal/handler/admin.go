@@ -3593,6 +3593,11 @@ func (h *AdminHandler) ResetLicenseUsage(c *gin.Context) {
 	if period == "" {
 		period = "monthly"
 	}
+	// A period no counter is kept for would reset nothing and say so.
+	if !quotaPeriods[period] {
+		response.BadRequest(c, "period must be hourly, daily, monthly or yearly")
+		return
+	}
 	periodKey := req.PeriodKey
 	if periodKey == "" {
 		periodKey = store.CurrentPeriodKey(period)

@@ -1883,6 +1883,13 @@ paths:
         whole license's. A member's `seats` holds the members who have
         joined; pending invitations are listed to the owner alone. A member is not listed a license while its product
         has no seats (its type changed), as their key opens nothing then.
+
+        Each license leaves out what is the operator's: the owner's copy
+        has no `notes`, `user_id`, `stripe_customer_id`,
+        `stripe_payment_intent_id`, `stripe_checkout_session_id`,
+        `external_customer_id`, `external_workspace_id`, `signup_source`
+        or `signup_plan_id`, and no `user_id` on its seats; a member's
+        copy also leaves out the subscription and the owner's details.
       security:
         - CookieAuth: []
       responses:
@@ -1914,6 +1921,17 @@ paths:
                                 cancel_scheduled:
                                   type: boolean
                                   description: Only for the owner; the license's subscription is set to end at its period end (`valid_until`) rather than renew
+                                features:
+                                  type: array
+                                  description: What the license grants, its add-ons included, as verify and the signed token read them
+                                  items:
+                                    type: object
+                                    properties:
+                                      feature: { type: string }
+                                      value_type: { type: string }
+                                      value: { type: string }
+                                      quota_period: { type: string }
+                                      quota_unit: { type: string }
                       renewals_enabled:
                         type: boolean
                         description: Whether maintenance renewals are on sale (`POST /portal/updates/renew`)
@@ -3752,6 +3770,10 @@ paths:
         "400":
           description: "`BAD_REQUEST`: quantity missing or outside 1 to 10000"
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "401":
+          $ref: "#/components/responses/AdminUnauthorized"
+        "403":
+          $ref: "#/components/responses/AdminForbidden"
         "404":
           description: "`NOT_FOUND`: no such license"
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
@@ -3763,6 +3785,8 @@ paths:
             - `SEATS_IN_USE`: more people than the seats asked for (`details`: `in_use`, `seat_limit`)
             - `DEVICES_IN_USE`: more devices, or sessions, than the seats asked for hold (`details`: `in_use`, `activation_limit`, `kind`)
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+        "429":
+          $ref: "#/components/responses/RateLimited"
 
   /admin/licenses/{id}/valid-until:
     post:
@@ -4097,7 +4121,7 @@ paths:
                     properties:
                       status: { type: string, enum: [reset] }
         "400":
-          description: "`BAD_REQUEST`: `feature` missing"
+          description: "`BAD_REQUEST`: `feature` missing, or `period` not one of the four"
           content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
         "401":
           $ref: "#/components/responses/AdminUnauthorized"
